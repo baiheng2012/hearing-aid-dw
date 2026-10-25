@@ -25,7 +25,11 @@ def parse_types(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-
+def remove_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Drop rows with a repeated test_id (keep first). Return (clean df, removed count)."""
+    before = len(df)
+    deduped = df.drop_duplicates(subset="test_id", keep="first").reset_index(drop=True)
+    return deduped, before - len(deduped)
 
 
 
@@ -35,7 +39,7 @@ if __name__ == "__main__":
     from extract import extract
 
     raw = extract(Path("data/raw"))
-    out = parse_types(standardize_text(raw))
-    print(out.dtypes)
-    print("NaT in test_time:", out["test_time"].isna().sum())
-    print(out[["gain_db", "noise_db", "distortion_pct"]].describe())
+    std = parse_types(standardize_text(raw))
+    deduped, n_removed = remove_duplicates(std)
+    print("before:", len(std), "after:", len(deduped), "removed:", n_removed)
+    print("test_id duplicated after:", deduped["test_id"].duplicated().sum())
