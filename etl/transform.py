@@ -83,26 +83,35 @@ def recompute_result(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(corrected)
 
 
+def transform(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """Run all cleaning steps. Return (clean df, quarantine df, quality report)."""
+    std = parse_types(standardize_text(raw))
+    deduped, n_dup = remove_duplicates(std)
+    valid, quarantine = split_invalid(deduped)
+    fixed, n_corrected = recompute_result(valid)
 
+    assert len(fixed) + len(quarantine) == len(deduped), "row count mismatch after split"
+
+    report = {
+        "rows_extracted": len(raw),
+        "duplicates_removed": n_dup,
+        "rows_after_dedup": len(deduped),
+        "quarantined_total": len(quarantine),
+        "quarantined_by_reason": quarantine["reject_reason"].value_counts().to_dict(),
+        "results_corrected": n_corrected,
+        "rows_clean": len(fixed),
+    }
+    return fixed, quarantine, report
 
 
 
 if __name__ == "__main__":
+    import json
     from pathlib import Path
 
     from extract import extract
 
     raw = extract(Path("data/raw"))
-    std = parse_types(standardize_text(raw))
-    deduped, n_removed = remove_duplicates(std)
-    print("dedup removed:", n_removed)
-
-    valid, quarantine = split_invalid(deduped)
-    print("valid:", len(valid), "quarantine:", len(quarantine))
-    print(quarantine["reject_reason"].value_counts())
-    print(valid[["gain_db", "noise_db", "distortion_pct"]].describe())
-
-    fixed, n_corrected = recompute_result(valid)
-    print("corrected results:", n_corrected)
-    print(fixed["result"].value_counts(normalize=True))
-    print(fixed["defect_code"].value_counts())
+    fixed, quarantine, report = transform(raw)
+    print(json.dumps(report, indent=2))
+    print(fixed.dtypes)
