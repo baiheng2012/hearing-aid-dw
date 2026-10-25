@@ -33,6 +33,32 @@ def remove_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 
 
+PLAUSIBLE_RANGES = {
+    "gain_db": (0, 60),
+    "noise_db": (0, 60),
+    "distortion_pct": (0, 20),
+}
+
+
+def split_invalid(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split df into (valid, quarantine). Quarantine rows get a reject_reason."""
+    reason = pd.Series(pd.NA, index=df.index, dtype="string")
+    reason = reason.mask(df["gain_db"].isna(), "missing_gain_db")
+
+    for col, (low, high) in PLAUSIBLE_RANGES.items():
+        out_of_range = (df[col].notna() & ~df[col].between(low, high)).fillna(False)
+        reason = reason.mask(out_of_range & reason.isna(), f"{col}_out_of_range")
+
+    valid = df[reason.isna()].reset_index(drop=True)
+    quarantine = df[reason.notna()].assign(reject_reason=reason[reason.notna()]).reset_index(drop=True)
+    return valid, quarantine
+
+
+
+
+
+
+
 if __name__ == "__main__":
     from pathlib import Path
 
@@ -41,5 +67,9 @@ if __name__ == "__main__":
     raw = extract(Path("data/raw"))
     std = parse_types(standardize_text(raw))
     deduped, n_removed = remove_duplicates(std)
-    print("before:", len(std), "after:", len(deduped), "removed:", n_removed)
-    print("test_id duplicated after:", deduped["test_id"].duplicated().sum())
+    print("dedup removed:", n_removed)
+
+    valid, quarantine = split_invalid(deduped)
+    print("valid:", len(valid), "quarantine:", len(quarantine))
+    print(quarantine["reject_reason"].value_counts())
+    print(valid[["gain_db", "noise_db", "distortion_pct"]].describe())
