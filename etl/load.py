@@ -90,7 +90,21 @@ def load_fact_test(engine: Engine, df: pd.DataFrame) -> int:
     return len(records)
 
 
-
+def load_quarantine(engine: Engine, df: pd.DataFrame) -> int:
+    """Insert quarantined rows into dw.quarantine_test (idempotent)."""
+    cols = ["test_id", "serial_number", "product_model", "station_id", "test_time",
+            "gain_db", "noise_db", "distortion_pct", "reject_reason"]
+    records = df[cols].astype(object).where(df[cols].notna(), None).to_dict("records")
+    sql = text(
+        "INSERT INTO dw.quarantine_test (test_id, serial_number, product_model, station_id, "
+        "test_time, gain_db, noise_db, distortion_pct, reject_reason) "
+        "VALUES (:test_id, :serial_number, :product_model, :station_id, "
+        ":test_time, :gain_db, :noise_db, :distortion_pct, :reject_reason) "
+        "ON CONFLICT (test_id, reject_reason) DO NOTHING"
+    )
+    with engine.begin() as conn:
+        conn.execute(sql, records)
+    return len(records)
 
 
 

@@ -52,3 +52,20 @@ INSERT INTO dw.dim_defect (defect_code, description) VALUES
 ON CONFLICT (defect_code) DO NOTHING;
 
 
+
+CREATE TABLE IF NOT EXISTS dw.quarantine_test (
+    quarantine_key BIGSERIAL PRIMARY KEY,
+    test_id        VARCHAR(20) NOT NULL,
+    serial_number  VARCHAR(30),
+    product_model  VARCHAR(20),
+    station_id     VARCHAR(10),
+    test_time      TIMESTAMP,
+    gain_db        NUMERIC(8,2),
+    noise_db       NUMERIC(6,2),
+    distortion_pct NUMERIC(6,3),
+    reject_reason  VARCHAR(50) NOT NULL,
+    loaded_at      TIMESTAMP NOT NULL DEFAULT now(),
+    UNIQUE (test_id, reject_reason)
+);
+
+
