@@ -1,5 +1,8 @@
 """Transform step: clean, validate and split extracted test records."""
 import pandas as pd
+import numpy as np
+
+
 
 
 def standardize_text(df: pd.DataFrame) -> pd.DataFrame:
@@ -39,6 +42,12 @@ PLAUSIBLE_RANGES = {
     "distortion_pct": (0, 20),
 }
 
+SPEC = {
+    "gain_low": 27.0,
+    "gain_high": 33.0,
+    "noise_max": 24.0,
+    "distortion_max": 2.5,
+}
 
 def split_invalid(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split df into (valid, quarantine). Quarantine rows get a reject_reason."""
@@ -53,6 +62,25 @@ def split_invalid(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     quarantine = df[reason.notna()].assign(reject_reason=reason[reason.notna()]).reset_index(drop=True)
     return valid, quarantine
 
+def recompute_result(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Recompute defect_code and result from measurements. Return (df, corrected count)."""
+    df = df.copy()
+    old_result = df["result"].copy()
+
+    conditions = [
+        df["gain_db"] < SPEC["gain_low"],
+        df["gain_db"] > SPEC["gain_high"],
+        df["noise_db"] > SPEC["noise_max"],
+        df["distortion_pct"] > SPEC["distortion_max"],
+    ]
+    choices = ["D01_LOW_GAIN", "D02_HIGH_GAIN", "D03_HIGH_NOISE", "D04_HIGH_DISTORTION"]
+
+    codes = np.select(conditions, choices, default="")
+    df["defect_code"] = pd.Series(codes, index=df.index).replace("", pd.NA)
+
+    df["result"] = np.where(df["defect_code"].isna(), "PASS", "FAIL")
+    corrected = (old_result != df["result"]).sum()
+    return df, int(corrected)
 
 
 
@@ -73,3 +101,8 @@ if __name__ == "__main__":
     print("valid:", len(valid), "quarantine:", len(quarantine))
     print(quarantine["reject_reason"].value_counts())
     print(valid[["gain_db", "noise_db", "distortion_pct"]].describe())
+
+    fixed, n_corrected = recompute_result(valid)
+    print("corrected results:", n_corrected)
+    print(fixed["result"].value_counts(normalize=True))
+    print(fixed["defect_code"].value_counts())
