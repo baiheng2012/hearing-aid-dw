@@ -16,5 +16,27 @@ services:
       timeout: 5s
       retries: 10
 
+  superset:
+    build:
+      context: ./docker
+      args:
+        SUPERSET_VERSION: ${SUPERSET_VERSION}
+    image: hearing-dw-superset:${SUPERSET_VERSION}
+    container_name: hearing_dw_superset
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./docker/superset_config.py:/app/pythonpath/superset_config.py:ro
+
+
+
 volumes:
   pgdata:
