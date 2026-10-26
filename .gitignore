@@ -6,3 +6,4 @@ data/clean/*
 !data/raw/.gitkeep
 !data/clean/.gitkeep
 *.pyc
+.pytest_cache/
