@@ -1,4 +1,5 @@
 """Run the full ETL pipeline: extract -> transform -> load."""
+
 import json
 from pathlib import Path
 

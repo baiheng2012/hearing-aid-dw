@@ -1,4 +1,5 @@
 """Load step: write clean data into the star schema."""
+
 import pandas as pd
 from sqlalchemy import Engine, text
 
@@ -25,7 +26,6 @@ def load_dim_station(engine: Engine, df: pd.DataFrame) -> None:
         conn.execute(sql, rows)
 
 
-
 def load_dim_date(engine: Engine, df: pd.DataFrame) -> None:
     """Insert distinct test dates into dw.dim_date (idempotent)."""
     dates = df["test_time"].dt.normalize().drop_duplicates()
@@ -46,7 +46,8 @@ def load_dim_date(engine: Engine, df: pd.DataFrame) -> None:
         "ON CONFLICT (date_key) DO NOTHING"
     )
     with engine.begin() as conn:
-        conn.execute(sql, rows)       
+        conn.execute(sql, rows)
+
 
 def fetch_key_map(engine: Engine, table: str, key_col: str, value_col: str) -> dict:
     """Return {business value: surrogate key} for a dimension table."""
@@ -55,19 +56,21 @@ def fetch_key_map(engine: Engine, table: str, key_col: str, value_col: str) -> d
     return {value: key for value, key in rows}
 
 
-
 def load_fact_test(engine: Engine, df: pd.DataFrame) -> int:
     """Insert clean rows into dw.fact_test (idempotent). Return rows sent."""
     out = pd.DataFrame(index=df.index)
     out["test_id"] = df["test_id"]
     out["serial_number"] = df["serial_number"]
     out["product_key"] = df["product_model"].map(
-        fetch_key_map(engine, "dim_product", "product_key", "product_model"))
+        fetch_key_map(engine, "dim_product", "product_key", "product_model")
+    )
     out["station_key"] = df["station_id"].map(
-        fetch_key_map(engine, "dim_station", "station_key", "station_id"))
+        fetch_key_map(engine, "dim_station", "station_key", "station_id")
+    )
     out["date_key"] = df["test_time"].dt.strftime("%Y%m%d").astype(int)
     out["defect_key"] = df["defect_code"].map(
-        fetch_key_map(engine, "dim_defect", "defect_key", "defect_code"))
+        fetch_key_map(engine, "dim_defect", "defect_key", "defect_code")
+    )
     out["test_time"] = df["test_time"]
     out["gain_db"] = df["gain_db"]
     out["noise_db"] = df["noise_db"]
@@ -92,8 +95,17 @@ def load_fact_test(engine: Engine, df: pd.DataFrame) -> int:
 
 def load_quarantine(engine: Engine, df: pd.DataFrame) -> int:
     """Insert quarantined rows into dw.quarantine_test (idempotent)."""
-    cols = ["test_id", "serial_number", "product_model", "station_id", "test_time",
-            "gain_db", "noise_db", "distortion_pct", "reject_reason"]
+    cols = [
+        "test_id",
+        "serial_number",
+        "product_model",
+        "station_id",
+        "test_time",
+        "gain_db",
+        "noise_db",
+        "distortion_pct",
+        "reject_reason",
+    ]
     records = df[cols].astype(object).where(df[cols].notna(), None).to_dict("records")
     sql = text(
         "INSERT INTO dw.quarantine_test (test_id, serial_number, product_model, station_id, "
@@ -105,12 +117,6 @@ def load_quarantine(engine: Engine, df: pd.DataFrame) -> int:
     with engine.begin() as conn:
         conn.execute(sql, records)
     return len(records)
-
-
-
-
-
-
 
 
 if __name__ == "__main__":

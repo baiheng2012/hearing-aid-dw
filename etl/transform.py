@@ -1,8 +1,7 @@
 """Transform step: clean, validate and split extracted test records."""
-import pandas as pd
+
 import numpy as np
-
-
+import pandas as pd
 
 
 def standardize_text(df: pd.DataFrame) -> pd.DataFrame:
@@ -14,6 +13,7 @@ def standardize_text(df: pd.DataFrame) -> pd.DataFrame:
     df["defect_code"] = df["defect_code"].str.strip().replace("", pd.NA)
 
     return df
+
 
 def parse_types(df: pd.DataFrame) -> pd.DataFrame:
     """Parse test_time to datetime and measurement columns to numeric."""
@@ -28,12 +28,12 @@ def parse_types(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def remove_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Drop rows with a repeated test_id (keep first). Return (clean df, removed count)."""
     before = len(df)
     deduped = df.drop_duplicates(subset="test_id", keep="first").reset_index(drop=True)
     return deduped, before - len(deduped)
-
 
 
 PLAUSIBLE_RANGES = {
@@ -49,6 +49,7 @@ SPEC = {
     "distortion_max": 2.5,
 }
 
+
 def split_invalid(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split df into (valid, quarantine). Quarantine rows get a reject_reason."""
     reason = pd.Series(pd.NA, index=df.index, dtype="string")
@@ -59,8 +60,11 @@ def split_invalid(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         reason = reason.mask(out_of_range & reason.isna(), f"{col}_out_of_range")
 
     valid = df[reason.isna()].reset_index(drop=True)
-    quarantine = df[reason.notna()].assign(reject_reason=reason[reason.notna()]).reset_index(drop=True)
+    quarantine = (
+        df[reason.notna()].assign(reject_reason=reason[reason.notna()]).reset_index(drop=True)
+    )
     return valid, quarantine
+
 
 def recompute_result(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Recompute defect_code and result from measurements. Return (df, corrected count)."""
@@ -102,7 +106,6 @@ def transform(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
         "rows_clean": len(fixed),
     }
     return fixed, quarantine, report
-
 
 
 if __name__ == "__main__":

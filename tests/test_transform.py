@@ -1,6 +1,6 @@
 """Unit tests for the transform step. No database or raw files needed."""
-import pandas as pd
 
+import pandas as pd
 from transform import recompute_result, standardize_text
 
 

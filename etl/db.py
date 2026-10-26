@@ -1,4 +1,5 @@
 """Database helpers: build a SQLAlchemy engine from environment variables."""
+
 import os
 
 from dotenv import load_dotenv
